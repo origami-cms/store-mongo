@@ -1,0 +1,18 @@
+{
+  "name": "origami-store-mongodb",
+  "version": "0.0.1",
+  "description": "MongoDB plugin for Origami CMS",
+  "main": "index.js",
+  "repository": "https://github.com/origami-cms/store-mongodb",
+  "author": "Tristan Matthias <hello@tristanmatthias.com>",
+  "license": "MIT",
+  "dependencies": {
+    "mongoose": "^4.11.12",
+    "uuid": "^3.1.0"
+  },
+  "devDependencies": {
+    "babel-eslint": "^8.0.1",
+    "eslint": "^4.7.2",
+    "eslint-plugin-prefer-object-spread": "^1.2.1"
+  }
+}
