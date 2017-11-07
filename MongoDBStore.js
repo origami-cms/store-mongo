@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const {symbols, requireKeys} = require('origami-core-lib');
 const Model = require('./Model');
 
+mongoose.set('debug', true);
+
 const REQUIRED_OPTIONS = [
     'username',
     'password',
@@ -16,7 +18,10 @@ const s = symbols([
     'connection'
 ]);
 
+
 mongoose.Promise = global.Promise;
+mongoose.Types.ObjectId.isValid(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+
 
 module.exports = class MongoDBStore {
     constructor(options) {
@@ -51,7 +56,7 @@ module.exports = class MongoDBStore {
         // Lookup model
         if (!schema) {
             const m = this.models[name];
-            if (!m) throw new Error(`Origami.MongoDBStore: No model with name ${name}`);
+            if (!m) throw new Error(`Origami.MongoDBStore: No model with name '${name}'`);
             else return m;
 
         // Define a new model

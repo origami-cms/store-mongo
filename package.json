@@ -1,8 +1,8 @@
 {
   "name": "origami-store-mongodb",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "MongoDB plugin for Origami CMS",
-  "main": "index.js",
+  "main": "MongoDBStore.js",
   "repository": "https://github.com/origami-cms/store-mongodb",
   "author": "Tristan Matthias <hello@tristanmatthias.com>",
   "license": "MIT",
