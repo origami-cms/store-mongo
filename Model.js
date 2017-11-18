@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const uuid = require('uuid/v4');
+const uuidValidate = require('uuid-validate');
+
 const {
     symbols
 } = require('origami-core-lib');
@@ -12,13 +14,13 @@ const s = symbols([
     // Methods
     'parseFrom',
     'parseTo',
-    'overrideToJSON',
+    'addMethods',
 
     'convertTo',
     'convertFrom',
-    'handleError'
+    'handleError',
+    'updateResource'
 ]);
-
 
 module.exports = class Model {
     constructor(name, schema) {
@@ -27,7 +29,7 @@ module.exports = class Model {
         this[s.schema] = new mongoose.Schema(this[s.parseFrom](schema));
 
         // Update .toJSONHidden method on schema to remove hidden fields
-        this[s.overrideToJSON]();
+        this[s.addMethods]();
 
 
         this[s.model] = mongoose.model(name, this[s.schema]);
@@ -42,7 +44,7 @@ module.exports = class Model {
             .filter(n => n);
     }
 
-    [s.overrideToJSON]() {
+    [s.addMethods]() {
         const {hiddenFields} = this;
 
         // Remove the hidden fields from the result
@@ -68,8 +70,7 @@ module.exports = class Model {
             parsed[pName] = prop;
 
             if (prop.type instanceof Array) {
-                parsed[pName].any = prop.type;
-                delete parsed[pName].type;
+                parsed[pName].type = mongoose.Schema.Types.Mixed;
             } else switch (prop.type) {
                 case 'email':
                     parsed[pName].type = String;
@@ -85,9 +86,11 @@ module.exports = class Model {
                     unique: true
                 };
             }
-        });
 
-        console.log(parsed);
+        });
+        parsed.createdAt = {type: Date, required: true, default: Date.now};
+        parsed.updatedAt = Date;
+        parsed.deletedAt = Date;
 
         return parsed;
     }
@@ -104,7 +107,7 @@ module.exports = class Model {
 
 
     // Convert MongoDB resource to Origami resource
-    [s.convertFrom](resource, opts) {
+    [s.convertFrom](resource, opts = {}) {
         if (resource instanceof Array) return resource.map(r => this[s.convertFrom](r, opts));
         if (!resource) return null;
 
@@ -125,7 +128,8 @@ module.exports = class Model {
         if (q) {
             if (q.id) func = 'findOne';
             q = this[s.convertTo](q);
-        }
+            q.deletedAt = null;
+        } else q = {deletedAt: null};
 
         return this[s.convertFrom](
             await this[s.model][func](q),
@@ -145,18 +149,16 @@ module.exports = class Model {
         }
     }
 
-    // Update a resource based on the id
-    async update(id, resource, opts = {}) {
-        const updatedResource = await this[s.model]
-            .findOneAndUpdate(
-                {_id: id},
-                {$set: resource},
-                {new: true}
-            );
-
-        return this[s.convertFrom](updatedResource, opts);
+    // Update a resource based on the id or query
+    update(idOrObj, resource, opts = {}) {
+        return this[s.updateResource](idOrObj, resource, opts);
     }
 
+    async delete(idOrObj, resource, opts = {}) {
+        await this[s.updateResource](idOrObj, {deletedAt: new Date()}, opts);
+
+        return true;
+    }
 
     [s.handleError](e) {
         const errDuplicate1 = 11000;
@@ -179,6 +181,32 @@ module.exports = class Model {
                     rule: 'duplicate'
                 }];
                 throw err;
+            default:
+                throw e;
         }
+    }
+
+    // Modifies a resource. EG update, or delete (set the deleted flag)
+    async [s.updateResource](idOrObj, $set, opts, convert = true) {
+        let query = {};
+        if (uuidValidate(idOrObj)) {
+            query._id = idOrObj;
+        } else query = idOrObj;
+        query.deletedAt = null;
+
+        let updatedResource;
+        try {
+            updatedResource = await this[s.model]
+                .findOneAndUpdate(
+                    query,
+                    {$set},
+                    {new: true}
+                );
+        } catch (e) {
+            return this[s.handleError](e);
+        }
+        if (!updatedResource) throw new Error('general.errors.notFound');
+
+        return convert ? this[s.convertFrom](updatedResource, opts) : updatedResource;
     }
 };
