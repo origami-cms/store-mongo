@@ -6,8 +6,12 @@
   "repository": "https://github.com/origami-cms/store-mongodb",
   "author": "Tristan Matthias <hello@tristanmatthias.com>",
   "license": "MIT",
+  "scripts": {
+    "lint": "eslint ./ --fix --quiet"
+  },
   "dependencies": {
     "mongoose": "^4.11.12",
+    "mongoose-mpath": "^1.0.1",
     "uuid": "^3.1.0",
     "uuid-validate": "^0.0.2"
   },

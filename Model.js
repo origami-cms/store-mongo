@@ -1,16 +1,16 @@
 const mongoose = require('mongoose');
+const MpathPlugin = require('mongoose-mpath');
 const uuid = require('uuid/v4');
 const uuidValidate = require('uuid-validate');
 
-const {
-    symbols
-} = require('origami-core-lib');
+const {symbols} = require('origami-core-lib');
 
 const s = symbols([
     // Props
     'schema',
     'schemaObj',
     'model',
+    'isTree',
     // Methods
     'parseFrom',
     'parseTo',
@@ -22,6 +22,12 @@ const s = symbols([
     'updateResource'
 ]);
 
+const PLUGIN_TREE_OPTIONS = {
+    pathSeparator: '#', // String used to separate ids in path
+    onDelete: 'REPARENT', // 'REPARENT' or 'DELETE'
+    idType: String // Type used for model id
+};
+
 module.exports = class Model {
     constructor(name, schema) {
         this.name = name;
@@ -31,6 +37,10 @@ module.exports = class Model {
         // Update .toJSONHidden method on schema to remove hidden fields
         this[s.addMethods]();
 
+        if (schema.tree) {
+            this[s.isTree] = true;
+            this[s.schema].plugin(MpathPlugin, PLUGIN_TREE_OPTIONS);
+        }
 
         this[s.model] = mongoose.model(name, this[s.schema]);
     }
@@ -57,36 +67,38 @@ module.exports = class Model {
         };
     }
 
-
     // Parse the schema from Origami standard to Mongoose standard
     [s.parseFrom](schema) {
         const parsed = {};
         Object.entries(schema.properties).forEach(([pName, prop]) => {
-            if (typeof prop === 'string') prop = {
-                type: prop
-            };
-            if (pName === 'id') pName = '_id';
+            let p = prop;
+            let name = pName;
+            if (typeof p === 'string')
+                p = {
+                    type: p
+                };
+            if (name === 'id') name = '_id';
 
-            parsed[pName] = prop;
+            parsed[name] = p;
 
-            if (prop.type instanceof Array) {
-                parsed[pName].type = mongoose.Schema.Types.Mixed;
-            } else switch (prop.type) {
-                case 'email':
-                    parsed[pName].type = String;
-                    break;
-                case 'uuid':
-                    parsed[pName].type = String;
-                    parsed[pName].default = () => uuid();
-                    break;
+            if (p.type instanceof Array) {
+                parsed[name].type = mongoose.Schema.Types.Mixed;
+            } else
+                switch (p.type) {
+                    case 'email':
+                        parsed[name].type = String;
+                        break;
+                    case 'uuid':
+                        parsed[name].type = String;
+                        parsed[name].default = () => uuid();
+                        break;
                 }
 
-            if (prop.unique) {
-                parsed[pName].index = {
+            if (p.unique) {
+                parsed[name].index = {
                     unique: true
                 };
             }
-
         });
         parsed.createdAt = {type: Date, required: true, default: Date.now};
         parsed.updatedAt = Date;
@@ -95,9 +107,8 @@ module.exports = class Model {
         return parsed;
     }
 
-
     // Convert Origami resource to MongoDB resource
-    [s.convertTo](resource, opts) {
+    [s.convertTo](resource) {
         if (resource instanceof Array) return resource.map(this[s.convertTo]);
         if (resource.id) resource._id = resource.id;
         delete resource.id;
@@ -105,13 +116,24 @@ module.exports = class Model {
         return resource;
     }
 
-
     // Convert MongoDB resource to Origami resource
-    [s.convertFrom](resource, opts = {}) {
-        if (resource instanceof Array) return resource.map(r => this[s.convertFrom](r, opts));
+    [s.convertFrom](resource, opts = {}, children = false) {
+        if (resource instanceof Array)
+            return resource.map(r => this[s.convertFrom](r, opts, children));
         if (!resource) return null;
 
-        const r = resource.toJSONHidden(opts);
+        const r = resource.toJSONHidden
+            ? resource.toJSONHidden(opts)
+            : resource;
+
+        // If the resource has children, and the paramater is set, loop over
+        // children and apply the function recursively.
+        if (r.children && children) {
+            delete r.path;
+            delete r.parent;
+            r.children = this[s.convertFrom](r.children, opts, true);
+            if (!r.children.length) delete r.children;
+        }
 
         r.id = r._id;
         delete r._id;
@@ -131,19 +153,13 @@ module.exports = class Model {
             q.deletedAt = null;
         } else q = {deletedAt: null};
 
-        return this[s.convertFrom](
-            await this[s.model][func](q),
-            opts
-        );
+        return this[s.convertFrom](await this[s.model][func](q), opts);
     }
-
 
     // Create a new resource
     async create(resource) {
         try {
-            return this[s.convertFrom](
-                await this[s.model].create(resource)
-            );
+            return this[s.convertFrom](await this[s.model].create(resource));
         } catch (e) {
             this[s.handleError](e);
         }
@@ -154,10 +170,78 @@ module.exports = class Model {
         return this[s.updateResource](idOrObj, resource, opts);
     }
 
+    // Delete a resource
     async delete(idOrObj, resource, opts = {}) {
         await this[s.updateResource](idOrObj, {deletedAt: new Date()}, opts);
 
         return true;
+    }
+
+    // Move a resource under a parent in the tree
+    async move(id, parentId) {
+        if (!this[s.isTree]) throw new Error('Modal is not a tree structure');
+
+        const res = await this[s.model].findById(id);
+        if (!res) throw new Error('Resource does not exist');
+
+        const parent = await this[s.model].findById(parentId);
+        if (!parent)
+            throw new Error('Could not move resource. Parent does not exist');
+
+
+        if (parent.path) {
+            if (parent.path.includes(id))
+                throw new Error(
+                    'Could not move resource. Parent is an existing child of the resource.'
+                );
+        } else {
+            parent.path = parent._id;
+            await parent.save();
+        }
+
+        res.parent = parent;
+
+        return res.save();
+    }
+
+    // Get the tree of descendants
+    async children(id, fields = []) {
+        if (!this[s.isTree]) throw new Error('Modal is not a tree structure');
+        let f = fields;
+
+        const res = await this[s.model].findById(id);
+        if (!res) throw new Error('Resource does not exist');
+
+        if (f === true) {
+            // Set to null so all fields are included
+            f = null;
+        } else {
+            f.unshift('_id');
+            f = f.join(' ');
+        }
+
+        return new Promise((_res, rej) => {
+            res.getChildrenTree({fields: f}, (err, tree) => {
+                if (err) rej(err);
+                else _res(this[s.convertFrom](tree, {}, true));
+            });
+        });
+    }
+
+
+    // Get the tree of descendants
+    async parent(id) {
+        if (!this[s.isTree]) throw new Error('Modal is not a tree structure');
+
+        const res = await this[s.model].findById(id);
+        if (!res) throw new Error('Resource does not exist');
+
+        return new Promise((_res, rej) => {
+            res.getParent((err, parent) => {
+                if (err) rej(err);
+                else _res(this[s.convertFrom](parent, {}));
+            });
+        });
     }
 
     [s.handleError](e) {
@@ -175,11 +259,13 @@ module.exports = class Model {
                     .pop();
 
                 const err = new Error('request.invalid');
-                err.data = [{
-                    type: 'store',
-                    field,
-                    rule: 'duplicate'
-                }];
+                err.data = [
+                    {
+                        type: 'store',
+                        field,
+                        rule: 'duplicate'
+                    }
+                ];
                 throw err;
             default:
                 throw e;
@@ -196,17 +282,18 @@ module.exports = class Model {
 
         let updatedResource;
         try {
-            updatedResource = await this[s.model]
-                .findOneAndUpdate(
-                    query,
-                    {$set},
-                    {new: true}
-                );
+            updatedResource = await this[s.model].findOneAndUpdate(
+                query,
+                {$set},
+                {new: true}
+            );
         } catch (e) {
             return this[s.handleError](e);
         }
         if (!updatedResource) throw new Error('general.errors.notFound');
 
-        return convert ? this[s.convertFrom](updatedResource, opts) : updatedResource;
+        return convert
+            ? this[s.convertFrom](updatedResource, opts)
+            : updatedResource;
     }
 };

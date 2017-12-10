@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const {symbols, requireKeys} = require('origami-core-lib');
 const Model = require('./Model');
 
-mongoose.set('debug', true);
+// mongoose.set('debug', true);
 
 const REQUIRED_OPTIONS = [
     'username',
