@@ -1,7 +1,6 @@
-const mongoose = require('mongoose');
-const {symbols, requireKeys} = require('origami-core-lib');
+import mongoose from 'mongoose';
 
-import {Origami} from 'origami-core-lib';
+import {Origami, requireKeys} from 'origami-core-lib';
 import Model from './Model';
 
 // mongoose.set('debug', true);
@@ -14,14 +13,9 @@ const REQUIRED_OPTIONS = [
     'database'
 ];
 
-const s = symbols([
-    'options',
-    'connURI',
-    'connection'
-]);
-
 
 mongoose.Promise = global.Promise;
+// @ts-ignore
 mongoose.Types.ObjectId.isValid(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 
 
@@ -59,7 +53,7 @@ module.exports = class MongoDBStore implements Origami.Store.Store {
     }
 
 
-    model(name: string, schema: Origami.Store.Schema): Origami.Store.Model | void {
+    model(name: string, schema?: Origami.Store.Schema): Origami.Store.Model | void {
         // Lookup model
         if (!schema) {
             const m = this.models[name];

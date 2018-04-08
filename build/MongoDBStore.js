@@ -3,8 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const mongoose = require('mongoose');
-const { symbols, requireKeys } = require('origami-core-lib');
+const mongoose_1 = __importDefault(require("mongoose"));
+const origami_core_lib_1 = require("origami-core-lib");
 const Model_1 = __importDefault(require("./Model"));
 // mongoose.set('debug', true);
 const REQUIRED_OPTIONS = [
@@ -14,13 +14,9 @@ const REQUIRED_OPTIONS = [
     'port',
     'database'
 ];
-const s = symbols([
-    'options',
-    'connURI',
-    'connection'
-]);
-mongoose.Promise = global.Promise;
-mongoose.Types.ObjectId.isValid(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+mongoose_1.default.Promise = global.Promise;
+// @ts-ignore
+mongoose_1.default.Types.ObjectId.isValid(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 module.exports = class MongoDBStore {
     constructor(options) {
         this.models = {};
@@ -30,7 +26,7 @@ module.exports = class MongoDBStore {
         }, options);
         // Validate the options
         try {
-            requireKeys(REQUIRED_OPTIONS, this._options);
+            origami_core_lib_1.requireKeys(REQUIRED_OPTIONS, this._options);
         }
         catch (e) {
             throw new Error(`Origami.MongoDBStore: Missing '${e.key}' setting`);
@@ -38,7 +34,7 @@ module.exports = class MongoDBStore {
         this.connURI = `mongodb://${o.username}:${o.password}@${o.host}:${o.port}/${o.database}`;
     }
     async connect() {
-        await mongoose.connect(this.connURI, {
+        await mongoose_1.default.connect(this.connURI, {
             useMongoClient: true,
             promiseLibrary: global.Promise
         });
