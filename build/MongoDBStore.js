@@ -36,7 +36,8 @@ module.exports = class MongoDBStore {
     async connect() {
         await mongoose_1.default.connect(this.connURI, {
             useMongoClient: true,
-            promiseLibrary: global.Promise
+            promiseLibrary: global.Promise,
+            connectTimeoutMS: 10000
         });
     }
     model(name, schema) {
