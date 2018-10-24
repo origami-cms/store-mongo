@@ -1,23 +1,38 @@
+import mongoose from 'mongoose';
 import { Origami } from 'origami-core-lib';
-export default class Model implements Origami.Store.Model {
-    name: string;
-    private _schemaObj;
-    private _schema;
-    private _isTree;
-    private _model;
-    constructor(name: string, schema: Origami.Store.Schema);
-    readonly hiddenFields: string[];
-    private _addMethods;
-    private _parseFrom;
-    private _convertTo;
-    private _convertFrom;
-    find(query?: {}, opts?: {}): Promise<Origami.Store.Resource | Origami.Store.Resource[] | null>;
-    create(resource: Origami.Store.Resource): Promise<Origami.Store.Resource | Origami.Store.Resource[] | null | undefined>;
-    update(idOrObj: string | object, resource: Origami.Store.Resource, opts?: {}): Promise<any>;
-    delete(idOrObj: string | object, resource: Origami.Store.Resource, opts?: {}): Promise<boolean>;
-    move(id: string, parentId: string): Promise<any>;
-    children(id: string, fields?: string[] | true): Promise<Origami.Store.Resource | Origami.Store.Resource[] | false>;
-    parent(id: string): Promise<Origami.Store.Resource | false>;
-    private _handleError;
-    private _updateResource;
+import { Model } from 'origami-store-base';
+import Resource from './Resource';
+export interface toJSONHidden {
+    hidden?: boolean;
+}
+export interface MongoDocument {
+    _id: any;
+    deletedAt?: Date | null;
+    [key: string]: any;
+}
+export interface MongoDocumentWithPlugins extends MongoDocument, mongoose.Document {
+    toJSONHidden(opts: toJSONHidden): object;
+    children?: MongoDocumentWithPlugins[];
+}
+export default class MongoModel extends Model {
+    private _mSchema;
+    private _mModel;
+    constructor(name: string, schema: Origami.Store.Schema, store: Origami.Store.Store);
+    private _addMethods();
+    protected _create(resource: object, options?: object): Promise<Resource | null>;
+    protected _find(query: object, options?: {
+        [key: string]: any;
+    }): Promise<Resource[]>;
+    protected _findOne(query: object, options?: object): Promise<Resource | null>;
+    protected _update(query: object, newResource: {
+        [key: string]: any;
+    }, options?: any): Promise<(Resource | null)[]>;
+    protected _schemaFrom(schema: Origami.Store.Schema): {
+        [key: string]: any;
+    };
+    protected _resourceFrom(resource: Origami.Store.Resource): object;
+    private _handleError(e);
+    private _addValidators();
+    private _populateQuery(func, options);
+    private _parseQuery(query);
 }
