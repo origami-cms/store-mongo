@@ -1,6 +1,6 @@
 {
   "name": "origami-store-mongodb",
-  "version": "0.1.2",
+  "version": "0.1.3-alpha.0",
   "description": "MongoDB plugin for Origami CMS",
   "main": "build/Store.js",
   "repository": "https://github.com/origami-cms/store-mongodb",
