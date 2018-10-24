@@ -7,10 +7,10 @@ export default class Model implements Origami.Store.Model {
     private _model;
     constructor(name: string, schema: Origami.Store.Schema);
     readonly hiddenFields: string[];
-    private _addMethods();
-    private _parseFrom(schema);
-    private _convertTo(resource);
-    private _convertFrom(resource, opts?, children?);
+    private _addMethods;
+    private _parseFrom;
+    private _convertTo;
+    private _convertFrom;
     find(query?: {}, opts?: {}): Promise<Origami.Store.Resource | Origami.Store.Resource[] | null>;
     create(resource: Origami.Store.Resource): Promise<Origami.Store.Resource | Origami.Store.Resource[] | null | undefined>;
     update(idOrObj: string | object, resource: Origami.Store.Resource, opts?: {}): Promise<any>;
@@ -18,6 +18,6 @@ export default class Model implements Origami.Store.Model {
     move(id: string, parentId: string): Promise<any>;
     children(id: string, fields?: string[] | true): Promise<Origami.Store.Resource | Origami.Store.Resource[] | false>;
     parent(id: string): Promise<Origami.Store.Resource | false>;
-    private _handleError(e);
-    private _updateResource(idOrObj, $set, opts, convert?);
+    private _handleError;
+    private _updateResource;
 }

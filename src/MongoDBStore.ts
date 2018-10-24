@@ -48,7 +48,8 @@ module.exports = class MongoDBStore implements Origami.Store.Store {
     async connect() {
         await mongoose.connect(this.connURI, {
             useMongoClient: true,
-            promiseLibrary: global.Promise
+            promiseLibrary: global.Promise,
+            connectTimeoutMS: 10000
         });
     }
 
