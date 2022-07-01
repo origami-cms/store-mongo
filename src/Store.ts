@@ -10,7 +10,8 @@ module.exports = class MongoStore extends Store {
         this._connection = await mongoose.connect(this.connURI, {
             useMongoClient: true,
             promiseLibrary: global.Promise,
-            connectTimeoutMS: 10000
+            connectTimeoutMS: 10000,
+            readPreference: 'nearest'
         });
         return this._connection;
     }
