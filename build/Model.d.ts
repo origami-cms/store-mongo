@@ -18,7 +18,7 @@ export default class MongoModel extends Model {
     private _mSchema;
     private _mModel;
     constructor(name: string, schema: Origami.Store.Schema, store: Origami.Store.Store);
-    private _addMethods();
+    private _addMethods;
     protected _create(resource: object, options?: object): Promise<Resource | null>;
     protected _find(query: object, options?: {
         [key: string]: any;
@@ -31,8 +31,8 @@ export default class MongoModel extends Model {
         [key: string]: any;
     };
     protected _resourceFrom(resource: Origami.Store.Resource): object;
-    private _handleError(e);
-    private _addValidators();
-    private _populateQuery(func, options);
-    private _parseQuery(query);
+    private _handleError;
+    private _addValidators;
+    private _populateQuery;
+    private _parseQuery;
 }
